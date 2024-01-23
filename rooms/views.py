@@ -31,7 +31,7 @@ def loginPage(request):
             login(request, user)
             return redirect('home')
         else:
-            messages.error(request, 'Username OR password does not exit')
+            messages.error(request, 'Username OR password does not exist')
 
     context = {'page': page}
     return render(request, 'rooms/login_register.html', context)

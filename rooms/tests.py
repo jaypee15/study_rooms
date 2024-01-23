@@ -1,7 +1,6 @@
 from django.contrib.auth import get_user_model, authenticate
-from django.test import TestCase
+from django.test import TestCase, SimpleTestCase, Client
 from rooms.models import Room, Topic, Message
-from django.utils import timezone
 from django.urls import reverse
 import time
 
@@ -9,25 +8,26 @@ User = get_user_model()
 
 
 class ModelsTestCase(TestCase):
-    def setUp(self):
-        self.user = get_user_model().objects.create_user(
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create_user(
             username="testuser", email="testuser@email.com", password="testpassword"
         )
-        self.user2 = get_user_model().objects.create_user(
+        cls.user2 = get_user_model().objects.create_user(
             username="testuser2", email="testuser2@email.com", password="testpassword2"
         )
 
-        self.topic = Topic.objects.create(name="Test Topic")
-        self.room = Room.objects.create(
-            host=self.user,
-            topic=self.topic,
+        cls.topic = Topic.objects.create(name="Test Topic")
+        cls.room = Room.objects.create(
+            host=cls.user,
+            topic=cls.topic,
             name="Test Room",
             description="Test Room Description",
         )
-        self.room.participants.set([self.user, self.user2])
+        cls.room.participants.set([cls.user, cls.user2])
 
-        self.message = Message.objects.create(
-            user=self.user, room=self.room, body="Test Message Body"
+        cls.message = Message.objects.create(
+            user=cls.user, room=cls.room, body="Test Message Body"
         )
 
     def test_user_creation(self):
@@ -123,3 +123,86 @@ class ModelsTestCase(TestCase):
     def test_message_string_representation(self):
         expected_str = "Test Message Body"
         self.assertEqual(str(self.message), expected_str)
+
+
+class ViewTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+    def test_login_page(self):
+        # Case 1: Test GET request to the login page
+        response = self.client.get(reverse('login'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'rooms/login_register.html')
+        self.assertContains(response, 'Login')  # Check if the login form is present
+
+        # Case 2: Test POST request with valid credentials
+        response = self.client.post(reverse('login'), {'username': 'testuser', 'password': 'testpassword'})
+        self.assertEqual(response.status_code, 302)  # Expecting a redirect after successful login
+        self.assertRedirects(response, reverse('home'))
+
+        # Case 3: Test POST request with invalid credentials
+        response = self.client.post(reverse('login'), {'username': 'testuser', 'password': 'wrongpassword'})
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'rooms/login_register.html')
+        self.assertContains(response, 'Username OR password does not exist')
+
+        # Case 4: Test POST request with a non-existent user
+        response = self.client.post(reverse('login'), {'username': 'nonexistentuser', 'password': 'password'})
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'rooms/login_register.html')
+        self.assertContains(response, 'User does not exist')
+
+        # Case 5: Test GET request when the user is already authenticated
+        self.client.login(username='testuser', password='testpassword')
+        response = self.client.get(reverse('login'))
+        self.assertEqual(response.status_code, 302)  # Expecting a redirect if already authenticated
+        self.assertRedirects(response, reverse('home'))
+
+        # Case 6: Test redirection after login when a 'next' parameter is provided
+        response = self.client.get(reverse('login') + '?next=/some/protected/url/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Login')
+        self.assertContains(response, 'value="/some/protected/url/"')  # Check if the 'next' parameter is present
+
+
+
+    def test_logout_user(self):
+        self.client.login(username='testuser', password='testpassword')
+        response = self.client.get(reverse('logout'))
+        self.assertEqual(response.status_code, 302)  # Expecting a redirect after logout
+
+    def test_register_page(self):
+        response = self.client.get(reverse('register'))
+        self.assertEqual(response.status_code, 200)
+        # Add more assertions as needed for the register page
+
+    def test_home_page(self):
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+        # Add more assertions as needed for the home page
+
+    def test_room_page(self):
+        response = self.client.get(reverse('room', args=[self.room.id]))
+        self.assertEqual(response.status_code, 200)
+        # Add more assertions as needed for the room page
+
+    def test_user_profile_page(self):
+        response = self.client.get(reverse('user-profile', args=[self.user.id]))
+        self.assertEqual(response.status_code, 200)
+        # Add more assertions as needed for the user profile page
+
+    def test_create_room_page(self):
+        self.client.login(username='testuser', password='testpassword')
+        response = self.client.get(reverse('create-room'))
+        self.assertEqual(response.status_code, 200)
+        # Add more assertions as needed for the create room page
+
+    def test_update_room_page(self):
+        self.client.login(username='testuser', password='testpassword')
+        response = self.client.get(reverse('update-room', args=[self.room.id]))
+        self.assertEqual(response.status_code, 200)
+        # Add more assertions as needed for the update room page
+
+
+        
