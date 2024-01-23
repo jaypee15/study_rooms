@@ -1,4 +1,4 @@
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 from django.test import TestCase
 from rooms.models import Room, Topic, Message
 from django.utils import timezone
@@ -13,6 +13,9 @@ class ModelsTestCase(TestCase):
         self.user = get_user_model().objects.create_user(
             username="testuser", email="testuser@email.com", password="testpassword"
         )
+        self.user2 = get_user_model().objects.create_user(
+            username="testuser2", email="testuser2@email.com", password="testpassword2"
+        )
 
         self.topic = Topic.objects.create(name="Test Topic")
         self.room = Room.objects.create(
@@ -21,6 +24,8 @@ class ModelsTestCase(TestCase):
             name="Test Room",
             description="Test Room Description",
         )
+        self.room.participants.set([self.user, self.user2])
+
         self.message = Message.objects.create(
             user=self.user, room=self.room, body="Test Message Body"
         )
@@ -33,6 +38,27 @@ class ModelsTestCase(TestCase):
         self.assertFalse(self.user.is_staff)
         self.assertFalse(self.user.is_superuser)
         self.assertTrue(isinstance(self.user, User))
+
+    def test_password_hashing(self):
+        self.assertNotEqual(self.user.password, "testpassword")
+        self.assertTrue(self.user.check_password("testpassword"))
+
+    def test_change_password(self):
+       # Change the user's password and ensure it's hashed
+        new_password = 'newtestpassword'
+        self.user.set_password(new_password)
+        self.user.save()
+
+        # Ensure the new password is hashed
+        self.assertNotEqual(self.user.password, new_password)
+        self.assertTrue(self.user.check_password(new_password))
+
+    def test_authenticate(self):
+       # Test with correct password
+        self.assertIsNotNone(authenticate(username="testuser", password="testpassword"))
+
+        # Test with incorrect password
+        self.assertIsNone(authenticate(username="testuser", password="wrongpassword"))
 
     def test_topic_creation(self):
         self.assertEqual(self.topic.name, "Test Topic")
@@ -48,7 +74,10 @@ class ModelsTestCase(TestCase):
         self.assertEqual(self.room.name, "Test Room")
         self.assertEqual(self.room.description, "Test Room Description")
         self.assertTrue(isinstance(self.room, Room))
-        # self.assertEqual(room.participants, "testuser")
+        self.assertEqual(list(self.room.participants.all()), [self.user, self.user2])
+        self.assertEqual(list(self.user.participants.all()), [self.room])
+        self.assertEqual(list(self.topic.room_set.all()), [self.room])
+
 
         # Test the created and updated timestamps
         self.assertIsNotNone(self.room.created)
