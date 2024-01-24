@@ -22,8 +22,8 @@ class Command(BaseCommand):
             )
             users.append(user)
 
-        # Create 15 topics
-        topics = [Topic.objects.create(name=fake.word()) for _ in range(15)]
+        # Create 10 topics
+        topics = [Topic.objects.create(name=fake.word()) for _ in range(10)]
 
         # Create 20 rooms with random topics and users
         rooms = []
