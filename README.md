@@ -4,6 +4,11 @@
 # Study Rooms
 </div>
 
+Study Rooms is social network where users can create and join rooms based on topics they are interested in and study together. Built with Django, the Django templating engine and Bootstrap.
+
+## Usage
+--> Find the live site [here](https://study-rooms.onrender.com/)
+
 ### Cloning the repository
 
 --> Clone the repository using the command below :
